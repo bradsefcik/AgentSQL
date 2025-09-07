@@ -1,0 +1,37 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "AgentSQL — SQL Generator";
+}
+<div class="card">
+  <h1>AgentSQL</h1>
+  <p class="muted">Paste a CREATE TABLE script, pick dialects, and generate parameterized DML + stored procedures.</p>
+  <form method="post">
+    <label>Target Dialects</label>
+    <div class="grid">
+      @foreach (var d in Model.AllDialects)
+      {
+        <label class="small"><input type="checkbox" name="Targets" value="@d" @(Model.Targets.Contains(d) ? "checked" : "") /> @d</label>
+      }
+    </div>
+    <div class="grid options">
+      <label class="small" title="Pro-only"><input type="checkbox" name="OptProcs" value="true" @(Model.OptProcs ? "checked" : "") @(Model.IsPro? "" : "disabled") /> Procedures/Functions <span class="kbd">Pro</span></label>
+      <label class="small" title="Pro-only"><input type="checkbox" name="OptDiff" value="true" @(Model.OptDiff ? "checked" : "") @(Model.IsPro? "" : "disabled") /> DDL Diff <span class="kbd">Pro</span></label>
+    </div>
+    <label>CREATE TABLE Script</label>
+    <textarea name="CreateSql" rows="10" placeholder="CREATE TABLE dbo.Person (...);">@Model.CreateSql</textarea>
+    <button type="submit">Generate</button>
+  </form>
+</div>
+
+@if (Model.Results?.Any() == true)
+{
+  <div class="card">
+    <h2>Results</h2>
+    @foreach (var kv in Model.Results)
+    {
+      <h3>@kv.Key</h3>
+      <pre><code>@kv.Value</code></pre>
+    }
+  </div>
+}

@@ -1,0 +1,197 @@
+@page "/admin"
+@functions{
+    public bool IsAdmin => HttpContext.Request.Cookies["AgentSQL_Admin"] == "1";
+}
+@{
+    ViewData["Title"] = "AgentSQL — Admin Analytics";
+}
+@if (!IsAdmin)
+{
+<div class="card">
+  <h2>Admin Login</h2>
+  <p class="small">Enter admin key to view analytics.</p>
+  <input id="admin-key" placeholder="Admin key" />
+  <div class="flex" style="margin-top:10px">
+    <button onclick="adminLogin()">Login</button>
+  </div>
+  <p id="admin-msg" class="small"></p>
+</div>
+}
+else
+{
+<div class="card">
+  <h2>Analytics</h2>
+  <div class="flex" style="gap:8px; align-items:center">
+    <select id="days" title="Preset range">
+      <option value="7">Last 7 days</option>
+      <option value="14">Last 14 days</option>
+      <option value="30" selected>Last 30 days</option>
+      <option value="90">Last 90 days</option>
+    </select>
+    <input type="date" id="fromDate" title="From (UTC)" />
+    <input type="date" id="toDate" title="To (UTC)" />
+    <select id="cohortMetric" title="Cohort chart metric">
+      <option value="p">Purchases</option>
+      <option value="r">Revenue ($)</option>
+    </select>
+    <button onclick="loadCharts()">Refresh</button>
+    <button onclick="exportCsv()">Export CSV</button>
+    <button onclick="exportCohortCsv()">Export Cohorts CSV</button>
+  </div>
+
+  <div style="margin-top:16px">
+    <canvas id="chartTraffic" height="120"></canvas>
+  </div>
+  <div style="margin-top:16px">
+    <canvas id="chartAds" height="120"></canvas>
+  </div>
+  <div style="margin-top:16px">
+    <canvas id="chartConversion" height="120"></canvas>
+  </div>
+  <div style="margin-top:16px">
+    <canvas id="chartRevenue" height="120"></canvas>
+  </div>
+  <div style="margin-top:16px">
+    <canvas id="chartRevenueAB" height="120"></canvas>
+  </div>
+  <div style="margin-top:16px">
+    <canvas id="chartCohortDOW" height="120"></canvas>
+  </div>
+  <div style="margin-top:16px">
+    <canvas id="chartCohortHour" height="120"></canvas>
+  </div>
+  <div id="tableSummary" style="margin-top:16px"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+async function adminLogin(){
+  const key=document.getElementById('admin-key').value.trim();
+  const msg=document.getElementById('admin-msg');
+  msg.textContent='Validating...';
+  try{
+    const res=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key})});
+    const j=await res.json();
+    if(j.ok){ location.reload(); } else { msg.textContent='Invalid: '+(j.error||''); }
+  }catch(e){ msg.textContent='Error: '+e.message; }
+}
+
+async function loadCharts(){
+  const days=document.getElementById('days').value;
+  const f=document.getElementById('fromDate').value;
+  const t=document.getElementById('toDate').value;
+  const metric=document.getElementById('cohortMetric').value;
+
+  let url='/api/admin/analytics?days='+days;
+  if(f&&t){ url += '&from='+f+'T00:00:00Z&to='+t+'T23:59:59Z'; }
+  const res=await fetch(url);
+  const j=await res.json();
+  if(!j.ok) return;
+
+  const data=j.data; const cohorts=j.cohorts || {dow:{},hour:{}};
+  const labels=Object.keys(data).sort();
+  const pv=labels.map(d=>data[d].page_view||0);
+  const aA=labels.map(d=>data[d].ad_impression_A||0);
+  const aB=labels.map(d=>data[d].ad_impression_B||0);
+  const ck=labels.map(d=>data[d].checkout_click||0);
+  const pur=labels.map(d=>data[d].purchase||0);
+  const conv=labels.map((d,i)=>{ const c=ck[i]||0; const p=pur[i]||0; return c>0? Math.round((p/c)*100):0; });
+  const rev=labels.map(d=> (data[d].revenue_cents_total||0)/100.0);
+  const revA=labels.map(d=> (data[d].revenue_cents_A||0)/100.0);
+  const revB=labels.map(d=> (data[d].revenue_cents_B||0)/100.0);
+
+  makeLine('chartTraffic','Page Views',labels,pv);
+  makeTwoBars('chartAds','Ad Impressions (A/B)',labels,aA,aB);
+  makeLine('chartConversion','Checkout Conversion %',labels,conv);
+  makeLine('chartRevenue','Revenue ($)',labels,rev);
+  makeTwoBars('chartRevenueAB','Revenue by Variant ($)',labels,revA,revB);
+
+  // Cohorts
+  const dowLabels=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const dowPv=dowLabels.map(k=> (cohorts.dow?.[k]?.page_view||0));
+  const dowPur=dowLabels.map(k=> (cohorts.dow?.[k]?.purchase||0));
+  const dowRev=dowLabels.map(k=> ((cohorts.dow?.[k]?.revenue_cents_total||0)/100.0));
+  if(metric==='r'){
+    makeTwoBars('chartCohortDOW','Revenue by Day-of-Week ($)',dowLabels,dowRev,dowPv);
+  } else {
+    makeTwoBars('chartCohortDOW','Purchases by Day-of-Week',dowLabels,dowPur,dowPv);
+  }
+
+  const hourLabels=[...Array(24)].map((_,i)=>String(i).padStart(2,'0'));
+  const hourPur=hourLabels.map(k=> (cohorts.hour?.[k]?.purchase||0));
+  const hourRev=hourLabels.map(k=>
+ (cohorts.hour?.[k]?.revenue_cents_total||0)/100.0);
+  if(metric==='r'){
+    makeBar('chartCohortHour','Revenue by Hour (UTC, $)',hourLabels,hourRev);
+  } else {
+    makeBar('chartCohortHour','Purchases by Hour (UTC)',hourLabels,hourPur);
+  }
+
+  renderSummaryTable(labels,pv,ck,pur,rev);
+}
+
+function makeLine(id,label,labels,vals){
+  const ctx=document.getElementById(id).getContext('2d');
+  if(ctx._chart) ctx._chart.destroy();
+  ctx._chart = new Chart(ctx,{type:'line',data:{labels,datasets:[{label,data:vals}]},options:{responsive:true}});
+}
+function makeTwoBars(id,label,labels,a,b){
+  const ctx=document.getElementById(id).getContext('2d');
+  if(ctx._chart) ctx._chart.destroy();
+  ctx._chart = new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'A',data:a},{label:'B',data:b}]},options:{responsive:true}});
+}
+function makeBar(id,label,labels,vals){
+  const ctx=document.getElementById(id).getContext('2d');
+  if(ctx._chart) ctx._chart.destroy();
+  ctx._chart = new Chart(ctx,{type:'bar',data:{labels,datasets:[{label,data:vals}]},options:{responsive:true}});
+}
+
+function exportCsv(){
+  const days=document.getElementById('days').value;
+  const f=document.getElementById('fromDate').value;
+  const t=document.getElementById('toDate').value;
+  let url='/api/admin/analytics.csv?days='+days;
+  if(f&&t){ url += '&from='+f+'T00:00:00Z&to='+t+'T23:59:59Z'; }
+  window.location=url;
+}
+function exportCohortCsv(){
+  const days=document.getElementById('days').value;
+  const f=document.getElementById('fromDate').value;
+  const t=document.getElementById('toDate').value;
+  let url='/api/admin/cohorts.csv?days='+days;
+  if(f&&t){ url += '&from='+f+'T00:00:00Z&to='+t+'T23:59:59Z'; }
+  window.location=url;
+}
+
+function renderSummaryTable(labels,pv,ck,pur,rev){
+  const days = Math.max(1, labels.length);
+  const pvTotal = pv.reduce((a,b)=>a+b,0);
+  const ckTotal = ck.reduce((a,b)=>a+b,0);
+  const purTotal = pur.reduce((a,b)=>a+b,0);
+  const revTotal = rev.reduce((a,b)=>a+b,0);
+  const conv = ckTotal>0 ? Math.round((purTotal/ckTotal)*1000)/10 : 0;
+  const perDay = v => Math.round((v/days)*10)/10;
+  const html = `
+  <div class="card">
+    <h3>Summary</h3>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="text-align:left;border-bottom:1px solid #334155;padding:6px">Metric</th>
+        <th style="text-align:right;border-bottom:1px solid #334155;padding:6px">Total</th>
+        <th style="text-align:right;border-bottom:1px solid #334155;padding:6px">Avg / Day</th>
+      </tr></thead>
+      <tbody>
+        <tr><td style="padding:6px">Page Views</td><td style="text-align:right;padding:6px">${pvTotal}</td><td style="text-align:right;padding:6px">${perDay(pvTotal)}</td></tr>
+        <tr><td style="padding:6px">Checkout Clicks</td><td style="text-align:right;padding:6px">${ckTotal}</td><td style="text-align:right;padding:6px">${perDay(ckTotal)}</td></tr>
+        <tr><td style="padding:6px">Purchases</td><td style="text-align:right;padding:6px">${purTotal}</td><td style="text-align:right;padding:6px">${perDay(purTotal)}</td></tr>
+        <tr><td style="padding:6px">Revenue ($)</td><td style="text-align:right;padding:6px">${revTotal.toFixed(2)}</td><td style="text-align:right;padding:6px">${(revTotal/days).toFixed(2)}</td></tr>
+        <tr><td style="padding:6px">Conversion (%)</td><td style="text-align:right;padding:6px">${conv}</td><td style="text-align:right;padding:6px">—</td></tr>
+      </tbody>
+    </table>
+  </div>`;
+  document.getElementById('tableSummary').innerHTML = html;
+}
+
+loadCharts();
+</script>
+}

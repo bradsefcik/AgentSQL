@@ -1,0 +1,22 @@
+@page "/license"
+@functions{
+    public string? License { get; set; }
+}
+@{
+    ViewData["Title"] = "AgentSQL — License";
+    var sid = HttpContext.Request.Query["session_id"].ToString();
+    var env = HttpContext.RequestServices.GetService<IHostEnvironment>()!;
+    var path = System.IO.Path.Combine(env.ContentRootPath, "wwwroot", "licenses", (sid??"") + ".txt");
+    if (System.IO.File.Exists(path)){
+        License = System.IO.File.ReadAllText(path);
+    }
+}
+<div class="card">
+  <h1>Your License</h1>
+  @if (!string.IsNullOrWhiteSpace(License)){
+    <p>Copy this license token and use <strong>Activate License</strong> in the header:</p>
+    <pre><code>@License</code></pre>
+  } else {
+    <p class="muted">If you just completed checkout, the license will appear here. You will also receive an email (if configured).</p>
+  }
+</div>

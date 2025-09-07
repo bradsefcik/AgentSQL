@@ -1,0 +1,78 @@
+@using Microsoft.AspNetCore.Http
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor Accessor
+@{
+    var isPro = (Accessor.HttpContext?.Request?.Cookies["AgentSQL_Pro"] == "1");
+    var adVariant = Accessor.HttpContext?.Request?.Cookies["AgentSQL_AdVariant"];
+    if (string.IsNullOrWhiteSpace(adVariant)){
+        var rv = new Random().Next(0,100) < 50 ? "A" : "B";
+        Accessor.HttpContext!.Response.Cookies.Append("AgentSQL_AdVariant", rv, new CookieOptions{ Expires = DateTimeOffset.UtcNow.AddYears(1), HttpOnly=false, IsEssential=true, SameSite=SameSiteMode.Lax });
+        adVariant = rv;
+    }
+    var cfg = Context.RequestServices.GetService<IConfiguration>()!;
+    var adsOn = !isPro && (cfg["Ads:Enabled"] == "true" || cfg["Ads:Enabled"] == "True");
+    var slot = (adVariant == "B" ? cfg["Ads:AdSlotB"] : cfg["Ads:AdSlotA"]);
+    var adClient = cfg["Ads:AdClient"];
+}
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>AgentSQL — by Sefcik Software Solutions, LLC</title>
+  <link rel="manifest" href="/manifest.json"/>
+  <link rel="stylesheet" href="/site.css"/>
+  <script>if('serviceWorker' in navigator){ navigator.serviceWorker.register('/service-worker.js'); }</script>
+</head>
+<body>
+<header class="nav">
+  <div class="brand">
+    <img src="/img/agentsql.svg" alt="AgentSQL logo"/>
+    <span>AgentSQL</span>
+  </div>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/admin">Admin</a>
+    <button id="btn-buy" onclick="buyPro()">Buy Pro</button>
+    <button id="btn-activate" onclick="activateLicense()">Activate License</button>
+  </nav>
+</header>
+
+@if (adsOn)
+{
+  <aside class="ad">
+    <!-- Example Google AdSense slot -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=@adClient" crossorigin="anonymous"></script>
+    <ins class="adsbygoogle" style="display:block" data-ad-client="@adClient" data-ad-slot="@slot" data-ad-format="auto" data-full-width-responsive="true"></ins>
+    <script>(adsbygoogle=window.adsbygoogle||[]).push({});</script>
+  </aside>
+}
+
+<main class="container">
+  @RenderBody()
+</main>
+
+<footer class="foot">
+  <small>© @DateTime.UtcNow.Year Sefcik Software Solutions, LLC</small>
+</footer>
+
+<script>
+async function buyPro(){
+  try{
+    const email = prompt("Enter email for the license (optional):") || "";
+    // Track click
+    fetch('/api/analytics/track', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:'checkout_click'})});
+    const res = await fetch('/api/stripe/create-checkout-session', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email})});
+    const j = await res.json();
+    if(j.url) location.href = j.url;
+  }catch(e){ alert('Checkout error: '+e.message); }
+}
+async function activateLicense(){
+  const token = prompt("Paste your license token:");
+  if(!token) return;
+  const res = await fetch('/api/license/activate', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({token})});
+  const j = await res.json();
+  if(j.ok){ alert('License activated!'); location.reload(); } else { alert('Activation failed: '+(j.error||'unknown')); }
+}
+</script>
+</body>
+</html>

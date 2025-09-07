@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36408.4
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSQL", "AgentSQL\AgentSQL.csproj", "{0A87548F-C1A5-7FD5-6635-A3FD4BE553F9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0A87548F-C1A5-7FD5-6635-A3FD4BE553F9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0A87548F-C1A5-7FD5-6635-A3FD4BE553F9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0A87548F-C1A5-7FD5-6635-A3FD4BE553F9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0A87548F-C1A5-7FD5-6635-A3FD4BE553F9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D69025FB-F3B7-4D98-A458-2B5F0F13AE54}
+	EndGlobalSection
+EndGlobal

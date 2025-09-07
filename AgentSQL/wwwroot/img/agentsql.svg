@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#92f7b2" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#0a7b3b" stop-opacity="1"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="glow"/></feMerge>
+    </filter>
+  </defs>
+  <!-- 3D-ish hexagram base -->
+  <g transform="translate(50,50)">
+    <g transform="rotate(0)">
+      <polygon points="0,-42 36,21 -36,21" fill="url(#g)" filter="url(#glow)"/>
+    </g>
+    <g transform="rotate(180)">
+      <polygon points="0,-42 36,21 -36,21" fill="#0a7b3b"/>
+    </g>
+  </g>
+  <!-- Section sign -->
+  <text x="50" y="58" font-family="Inter,Segoe UI,Arial" font-weight="700" text-anchor="middle" font-size="36" fill="#ffffff">§</text>
+</svg>

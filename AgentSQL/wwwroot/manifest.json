@@ -1,0 +1,15 @@
+{
+  "name": "AgentSQL",
+  "short_name": "AgentSQL",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "icons": [
+    {
+      "src": "/img/agentsql.svg",
+      "sizes": "180x180",
+      "type": "image/svg+xml"
+    }
+  ]
+}
