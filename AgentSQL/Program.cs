@@ -11,6 +11,12 @@ using SendGrid.Helpers.Mail;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure for Replit environment - bind to all interfaces
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenAnyIP(5000);
+});
+
 builder.Services.AddRazorPages();
 builder.Services.AddRouting();
 builder.Services.AddHttpContextAccessor();
