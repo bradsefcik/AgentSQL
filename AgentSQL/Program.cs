@@ -23,6 +23,14 @@ builder.Services.AddHttpContextAccessor();
 
 var app = builder.Build();
 
+// Configure for Replit preview - allow iframe embedding
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.Remove("X-Frame-Options");
+    context.Response.Headers.Add("X-Frame-Options", "ALLOWALL");
+    await next();
+});
+
 app.UseStaticFiles();
 app.UseRouting();
 
